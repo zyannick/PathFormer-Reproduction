@@ -10,10 +10,11 @@ import math
 class SeasonalityBlock(nn.Module):
     
     def __init__(self, k = 1, prediction_length = 1, low_frequency = 1):
+        super(SeasonalityBlock, self).__init__()
         self.k = k
         self.prediction_length = prediction_length
         self.low_frequency = low_frequency
-        super(SeasonalityBlock, self).__init__()
+        
         
     def dft(self, signal):
         dft_torch = fft.fft(signal)
@@ -27,9 +28,6 @@ class SeasonalityBlock(nn.Module):
 
         return signal_freq, index_tuple
     
-    def idft(self, signal):
-        idft_torch = fft.ifft(signal)
-        return idft_torch
     
     def extrapolate(self, x_freq, f, t):
         x_freq = torch.cat([x_freq, x_freq.conj()], dim=1)
@@ -56,7 +54,7 @@ class SeasonalityBlock(nn.Module):
             signal_freq = signal_freq[:, self.low_frequency:]
             f = fft.rfftfreq(t)[self.low_frequency:]
             
-        x_freq, index_tuple = self.topk_freq(x_freq)
+        x_freq, index_tuple = self.topKFrequency(signal_freq)
         f = repeat(f, 'f -> b f d', b=x_freq.size(0), d=x_freq.size(2))
         f = f.to(x_freq.device)
         f = rearrange(f[index_tuple], 'b f d -> b f () d').to(x_freq.device)
