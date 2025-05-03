@@ -161,7 +161,7 @@ class MultiScaleRouter(nn.Module):
     def forward(self, x):
         x = x[:, :, :, 0]
         x_seasonality = self.seasonality_block(x)
-        x_trend = self.trend_block(x)
+        x_trend = self.trend_block(x - x_seasonality)
 
         x_trans = self.linear_x_trans(x + x_seasonality + x_trend)
 
