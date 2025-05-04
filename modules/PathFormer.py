@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from modules.AMSBlock import AMSBlock
+from modules.AdaptiveMultiScale import AdaptiveMultiScale
 
 class PathFormer(nn.Module):
     
@@ -10,7 +10,7 @@ class PathFormer(nn.Module):
         self.AMSBlocks = nn.ModuleList()
         
         for _ in range(nb_layers):
-            self.AMSBlocks.append(AMSBlock())
+            self.AMSBlocks.append(AdaptiveMultiScale())
             
         self.predictor = None
         

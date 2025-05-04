@@ -8,6 +8,7 @@ import math
 from typing import Optional, Tuple, Union, List, Dict
 from torch import Tensor
 from torch.nn import functional as F
+from torch.distributions.normal import Normal
 
 
 class SeasonalityBlock(nn.Module):
@@ -106,65 +107,116 @@ class TrendBlock(nn.Module):
 
 class RoutingBlock(nn.Module):
 
-    def __init__(self, d: int, num_patch_sizes: int, top_k: int):
+    def __init__(
+        self, d: int, num_experts: int, top_k: int, noisy_gating: bool, num_nodes: int
+    ):
         super(RoutingBlock, self).__init__()
-        if top_k > num_patch_sizes:
-            raise ValueError("top_k (K) cannot be greater than num_patch_sizes (M)")
+        if top_k > num_experts:
+            raise ValueError("top_k (K) cannot be greater than num_experts (M)")
 
         self.d = d
-        self.num_patch_sizes = num_patch_sizes
+        self.num_experts = num_experts
         self.top_k = top_k
 
-        self.fc_r = nn.Linear(d, num_patch_sizes)
-        self.fc_noise = nn.Linear(d, num_patch_sizes)
+        self.noisy_gating = noisy_gating
+
+        self.start_linear = nn.Linear(in_features=num_nodes, out_features=1)
+
+        self.w_gate = nn.Linear(d, num_experts)
+        self.w_noise = nn.Linear(d, num_experts)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(dim=-1)
 
-    def forward(self, x_trans):
-        base_score = self.fc_r(x_trans)
+        self.register_buffer("mean", torch.tensor([0.0]))
+        self.register_buffer("std", torch.tensor([1.0]))
 
-        noise_base = self.fc_noise(x_trans)
-        noise_softplus = self.softplus(noise_base)
-        noise = torch.randn_like(noise_softplus)
-        noise_term = noise * noise_softplus
-        raw_weights = base_score + noise_term
-        pathway_weights = self.softmax(raw_weights)
+    def _prob_in_top_k(
+        self, clean_values, noisy_values, noise_stddev, noisy_top_values
+    ):
+        batch = clean_values.size(0)
+        m = noisy_top_values.size(1)
+        top_values_flat = noisy_top_values.flatten()
 
-        top_k_values, top_k_indices = torch.topk(pathway_weights, self.top_k, dim=-1)
+        threshold_positions_if_in = (
+            torch.arange(batch, device=clean_values.device) * m + self.k
+        )
+        threshold_if_in = torch.unsqueeze(
+            torch.gather(top_values_flat, 0, threshold_positions_if_in), 1
+        )
+        is_in = torch.gt(noisy_values, threshold_if_in)
+        threshold_positions_if_out = threshold_positions_if_in - 1
+        threshold_if_out = torch.unsqueeze(
+            torch.gather(top_values_flat, 0, threshold_positions_if_out), 1
+        )
+        normal = Normal(self.mean, self.std)
+        prob_if_in = normal.cdf((clean_values - threshold_if_in) / noise_stddev)
+        prob_if_out = normal.cdf((clean_values - threshold_if_out) / noise_stddev)
+        prob = torch.where(is_in, prob_if_in, prob_if_out)
+        return prob
 
-        sparse_weights = torch.zeros_like(pathway_weights)
-        sparse_weights.scatter_(1, top_k_indices, top_k_values)
+    def _gates_to_load(self, gates: torch.Tensor):
+        return (gates > 0).sum(0)
 
-        return sparse_weights
+    def forward(self, x_trans: torch.Tensor, train: bool, noise_epsilon=1e-2):
+
+        x = self.start_linear(x_trans).squeeze(-1)
+
+        clean_logits = self.w_gate(x)
+        if self.noisy_gating and train:
+            raw_noise_stddev = self.w_noise(x)
+            noise_stddev = self.softplus(raw_noise_stddev) + noise_epsilon
+            noisy_logits = clean_logits + (
+                torch.randn_like(clean_logits) * noise_stddev
+            )
+            logits = noisy_logits
+        else:
+            logits = clean_logits
+
+        top_logits, top_indices = logits.topk(min(self.k + 1, self.num_experts), dim=1)
+
+        top_k_logits = top_logits[:, : self.k]
+        top_k_indices = top_indices[:, : self.k]
+        top_k_gates = self.softmax(top_k_logits)
+
+        zeros = torch.zeros_like(logits, requires_grad=True)
+        gates = zeros.scatter(1, top_k_indices, top_k_gates)
+
+        if self.noisy_gating and self.k < self.num_experts and train:
+            load = (
+                self._prob_in_top_k(
+                    clean_logits, noisy_logits, noise_stddev, top_logits
+                )
+            ).sum(0)
+        else:
+            load = self._gates_to_load(gates)
+        return gates, load
 
 
 class MultiScaleRouter(nn.Module):
-
     def __init__(
         self,
         top_k: int,
         prediction_length: int,
         low_frequency: float,
         list_kernel_size: List[int],
-        num_patch_sizes: int,
+        num_nodes: int,
         d: int,
+        num_experts: int,
+        noisy_gating: bool,
     ):
         super(MultiScaleRouter, self).__init__()
-        self.seasonality_block = SeasonalityBlock(
-            top_k, prediction_length, low_frequency
-        )
+        self.trend_block = SeasonalityBlock(top_k, prediction_length, low_frequency)
         self.trend_block = TrendBlock(list_kernel_size)
         self.linear_x_trans = nn.Linear()
-        self.routing_block = RoutingBlock(d, num_patch_sizes, top_k)
+        self.routing_block = RoutingBlock(
+            d, num_experts, top_k, noisy_gating, num_nodes
+        )
 
-    def forward(self, x):
+    def forward(self, x : torch.Tensor, train : bool):
         x = x[:, :, :, 0]
-        x_seasonality = self.seasonality_block(x)
-        x_trend = self.trend_block(x - x_seasonality)
-
-        x_trans = self.linear_x_trans(x + x_seasonality + x_trend)
-
-        r_trans = self.routing_block(x_trans)
-
-        return r_trans
+        _, trend = self.trend_block(x)
+        seasonality, _ = self.trend_block(x)
+        x_trans = x + seasonality + trend
+        gates, load = self.routing_block(x_trans, train)
+        return  gates, load
