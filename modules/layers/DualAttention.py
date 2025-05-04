@@ -7,7 +7,7 @@ import numpy as np
 from torch.nn import init
 
 
-class DualAttention(nn.Module):
+class DualAttentionLayer(nn.Module):
 
     def __init__(
         self,
@@ -21,7 +21,7 @@ class DualAttention(nn.Module):
         layer_number,
         batch_norm,
     ):
-        super(DualAttention, self).__init__()
+        super(DualAttentionLayer, self).__init__()
         self.d_model = d_model
         self.num_nodes = num_nodes
         self.dynamic = dynamic

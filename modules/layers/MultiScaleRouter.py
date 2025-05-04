@@ -9,7 +9,7 @@ from typing import Optional, Tuple, Union, List, Dict
 from torch import Tensor
 from torch.nn import functional as F
 from torch.distributions.normal import Normal
-
+from ml_collections import ConfigDict
 
 class SeasonalityBlock(nn.Module):
 
@@ -194,29 +194,25 @@ class RoutingBlock(nn.Module):
 
 
 class MultiScaleRouter(nn.Module):
-    def __init__(
-        self,
-        top_k: int,
-        prediction_length: int,
-        low_frequency: float,
-        list_kernel_size: List[int],
-        num_nodes: int,
-        d: int,
-        num_experts: int,
-        noisy_gating: bool,
-    ):
+    def __init__(self, config : ConfigDict):
         super(MultiScaleRouter, self).__init__()
-        self.trend_block = SeasonalityBlock(top_k, prediction_length, low_frequency)
-        self.trend_block = TrendBlock(list_kernel_size)
-        self.linear_x_trans = nn.Linear()
+        self.config = config
+        self.trend_block = SeasonalityBlock(
+            self.config.top_k, self.config.prediction_length, self.config.low_frequency
+        )
+        self.trend_block = TrendBlock(self.config.list_kernel_size)
         self.routing_block = RoutingBlock(
-            d, num_experts, top_k, noisy_gating, num_nodes
+            self.config.d,
+            self.config.num_experts,
+            self.config.top_k,
+            self.config.noisy_gating,
+            self.config.num_nodes,
         )
 
-    def forward(self, x : torch.Tensor, train : bool):
+    def forward(self, x: torch.Tensor, train: bool):
         x = x[:, :, :, 0]
         _, trend = self.trend_block(x)
         seasonality, _ = self.trend_block(x)
         x_trans = x + seasonality + trend
         gates, load = self.routing_block(x_trans, train)
-        return  gates, load
+        return gates, load
