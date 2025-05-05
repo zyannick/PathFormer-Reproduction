@@ -1,0 +1,39 @@
+is_training = true
+root_path = "./dataset/weather/"
+data_path = "weather.csv"
+model_id_base = "weather"
+model = "PathFormer"
+data = "custom"
+features = "M"
+seq_len = 96
+num_nodes = 21
+layer_nums = 3
+patch_size_list = [16, 12, 8, 4, 12, 8, 6, 4, 8, 6, 2, 12]
+residual_connection = 1
+k = 2
+d_model = 8
+d_ff = 64
+train_epochs = 30
+patience = 10
+lradj = "TST"
+itr = 1
+batch_size = 256
+learning_rate = 0.001
+
+
+log_dir = "./logs/LongForecasting"
+
+
+[[runs]]
+pred_len = 96
+
+
+[[runs]]
+pred_len = 192
+
+
+[[runs]]
+pred_len = 336
+
+[[runs]]
+pred_len = 720

@@ -58,7 +58,8 @@ def runner():
 
     logger = MLFlowLogger(
         experiment_name="PathFormer",
-        tracking_uri="file:./mlruns",
+        tracking_uri="sqlite:///mlflow/mlruns.db",
+        artifact_location="mlflow/artifacts",
         run_name=f"{config.model_id}_{datetime.datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}",
     )
 
@@ -75,8 +76,4 @@ def runner():
     )
 
     trainer.fit(forecaster, data_module)
-    if config.do_test:
-        trainer.test(forecaster, data_module, ckpt_path="best")
-
-
-
+    trainer.test(forecaster, data_module, ckpt_path="best")

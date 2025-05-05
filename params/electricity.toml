@@ -1,0 +1,41 @@
+is_training = true         
+root_path = "./dataset/electricity/" 
+data_path = "electricity.csv"      
+model_id_base = "electricity"     
+model = "PathFormer"        
+data = "custom"             
+features = "M"
+seq_len = 96                
+num_nodes = 321            
+layer_nums = 3              
+residual_connection = 1     
+k = 2                       
+d_model = 16                
+d_ff = 128                  
+patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2] 
+train_epochs = 50           
+patience = 10               
+lradj = "TST"               
+pct_start = 0.2            
+itr = 1                    
+batch_size = 16             
+learning_rate = 0.001       
+
+
+
+log_dir = "./logs/LongForecasting"
+
+
+
+[[runs]]
+pred_len = 96
+
+[[runs]]
+pred_len = 192
+
+[[runs]]
+pred_len = 336
+
+[[runs]]
+pred_len = 720
+

@@ -10,6 +10,7 @@ def parse_args():
     parser.add_argument('--model', type=str, default='PathFormer',
                         help='model name, options: [PathFormer]')
     parser.add_argument('--model_id', type=str, default="ETT.sh")
+    parser.add_argument('--seed', type=int, default=1024, help='random seed')
 
     # data loader
     parser.add_argument('--data', type=str, default='custom', help='dataset type')

@@ -7,7 +7,7 @@ from typing import Dict, Any, Tuple
 
 
 class DataModule(pl.LightningDataModule):
-    
+
     def __init__(self, config: ml_collections.ConfigDict):
         super().__init__()
         self.config = config
@@ -18,43 +18,44 @@ class DataModule(pl.LightningDataModule):
         self.freq = config.freq
         self.batch_size = config.batch_size
         self.num_workers = config.num_workers
+        self.setup_datasets()
 
-    def setup(self, stage: str) -> None:
-        if stage == "fit":
-            self.train_dataset = Dataset_ETT(
-                root_path=self.root_path,
-                data_filename=self.data_path,
-                flag="train",
-                size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
-                features=self.features,
-                target=self.target,
-                scale=True,
-                timeenc=1,
-                freq=self.freq,
-            )
-            self.val_dataset = Dataset_ETT(
-                root_path=self.root_path,
-                data_filename=self.data_path,
-                flag="val",
-                size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
-                features=self.features,
-                target=self.target,
-                scale=True,
-                timeenc=1,
-                freq=self.freq,
-            )
-        elif stage == "test":
-            self.test_dataset = Dataset_ETT(
-                root_path=self.root_path,
-                data_filename=self.data_path,
-                flag="test",
-                size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
-                features=self.features,
-                target=self.target,
-                scale=True,
-                timeenc=1,
-                freq=self.freq,
-            )
+    def setup_datasets(self) -> None:
+
+        self.train_dataset = Dataset_ETT(
+            root_path=self.root_path,
+            data_filename=self.data_path,
+            flag="train",
+            size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
+            features=self.features,
+            target=self.target,
+            scale=True,
+            timeenc=1,
+            freq=self.freq,
+        )
+        self.val_dataset = Dataset_ETT(
+            root_path=self.root_path,
+            data_filename=self.data_path,
+            flag="val",
+            size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
+            features=self.features,
+            target=self.target,
+            scale=True,
+            timeenc=1,
+            freq=self.freq,
+        )
+
+        self.test_dataset = Dataset_ETT(
+            root_path=self.root_path,
+            data_filename=self.data_path,
+            flag="test",
+            size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
+            features=self.features,
+            target=self.target,
+            scale=True,
+            timeenc=1,
+            freq=self.freq,
+        )
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
@@ -66,11 +67,14 @@ class DataModule(pl.LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
-            dataset=self.val_dataset, batch_size=self.batch_size, num_workers=self.num_workers
+            dataset=self.val_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
         )
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
-            dataset=self.test_dataset, batch_size=self.batch_size, num_workers=self.num_workers
+            dataset=self.test_dataset,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
         )
-          

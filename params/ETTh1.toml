@@ -1,0 +1,48 @@
+is_training = true         
+root_path = "./dataset/ETT/" 
+data_path = "ETTh1.csv"      
+model_id_base = "ETTh1"     
+model = "PathFormer"        
+data = "ETTh1"              
+features = "M"
+seq_len = 96                
+num_nodes = 7
+layer_nums = 3
+batch_norm = 0              
+d_model = 4
+d_ff = 64
+train_epochs = 30
+patience = 10
+lradj = "TST"
+itr = 1
+learning_rate = 0.0005
+log_dir = "./logs/LongForecasting"
+
+
+[[runs]]
+pred_len = 96
+patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
+residual_connection = 1     
+k = 3
+batch_size = 128
+
+[[runs]]
+pred_len = 192
+patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
+residual_connection = 1
+k = 3
+batch_size = 128
+
+[[runs]]
+pred_len = 336
+patch_size_list = [16, 12, 8, 32, 12, 8, 6, 16, 8, 6, 4, 16] 
+residual_connection = 0    
+k = 3
+batch_size = 512           
+
+[[runs]]
+pred_len = 720
+patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
+residual_connection = 0     
+k = 2                       
+batch_size = 512           

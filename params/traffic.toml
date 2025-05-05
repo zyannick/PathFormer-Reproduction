@@ -1,0 +1,41 @@
+is_training = true
+root_path = "./dataset/"
+data_path = "traffic.csv"
+model_id_base = "traffic"
+model = "PathFormer"
+data = "custom"
+features = "M"
+seq_len = 96
+patch_size_list = [16, 12, 8, 32, 12, 8, 6, 32, 8, 6, 16, 12]
+num_nodes = 862
+layer_nums = 3
+k = 2
+d_model = 16
+d_ff = 128
+train_epochs = 50
+residual_connection = 1
+patience = 10
+lradj = "TST"
+pct_start = 0.2
+itr = 1
+batch_size = 24
+learning_rate = 0.0002
+
+
+log_dir = "./logs/LongForecasting"
+
+
+[[runs]]
+pred_len = 96
+
+
+[[runs]]
+pred_len = 192
+
+
+[[runs]]
+pred_len = 336
+
+
+[[runs]]
+pred_len = 720
