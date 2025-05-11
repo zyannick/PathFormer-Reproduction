@@ -11,6 +11,7 @@ from torch.nn import functional as F
 from torch.distributions.normal import Normal
 from ml_collections import ConfigDict
 
+
 class SeasonalityBlock(nn.Module):
 
     def __init__(
@@ -48,19 +49,19 @@ class SeasonalityBlock(nn.Module):
 
         return reduce(x_time, "b f t d -> b t d", "sum")
 
-    def forward(self, signal: torch.Tensor):
-        b, t, d = signal.shape
+    def forward(self, x: torch.Tensor):
+        b, t, d = x.shape
 
-        signal_freq = fft.fft(signal, dim=1)
+        x_freq = fft.rfft(x, dim=1)
 
         if t % 2 == 0:
-            signal_freq = signal_freq[:, self.low_frequency : -1]
+            x_freq = x_freq[:, self.low_frequency : -1]
             f = fft.rfftfreq(t)[self.low_frequency : -1]
         else:
-            signal_freq = signal_freq[:, self.low_frequency :]
+            x_freq = x_freq[:, self.low_frequency :]
             f = fft.rfftfreq(t)[self.low_frequency :]
 
-        x_freq, index_tuple = self.topKFrequency(signal_freq)
+        x_freq, index_tuple = self.topKFrequency(x_freq)
         f = repeat(f, "f -> b f d", b=x_freq.size(0), d=x_freq.size(2))
         f = f.to(x_freq.device)
         f = rearrange(f[index_tuple], "b f d -> b f () d").to(x_freq.device)
@@ -93,28 +94,33 @@ class TrendBlock(nn.Module):
             self.moving_avg_list.append(MovingAverage(k, 1))
         self.layer = torch.nn.Linear(1, len(kernel_size))
 
-    def forward(self, x_rem):
+    def forward(self, x):
         moving_mean = []
         for func in self.moving_avg_list:
-            moving_avg = func(x_rem)
+            moving_avg = func(x)
             moving_mean.append(moving_avg.unsqueeze(-1))
         moving_mean = torch.cat(moving_mean, dim=-1)
-        x_trend = torch.sum(
-            moving_mean * nn.Softmax(-1)(self.layer(x_rem.unsqueeze(-1))), dim=-1
+        moving_mean = torch.sum(
+            moving_mean * nn.Softmax(-1)(self.layer(x.unsqueeze(-1))), dim=-1
         )
-        return x_trend
+        res = x - moving_mean
+        return res, moving_mean
 
 
 class RoutingBlock(nn.Module):
 
     def __init__(
-        self, d: int, num_experts: int, top_k: int, noisy_gating: bool, num_nodes: int
+        self,
+        input_size: int,
+        num_experts: int,
+        top_k: int,
+        noisy_gating: bool,
+        num_nodes: int,
     ):
         super(RoutingBlock, self).__init__()
         if top_k > num_experts:
             raise ValueError("top_k (K) cannot be greater than num_experts (M)")
 
-        self.d = d
         self.num_experts = num_experts
         self.top_k = top_k
 
@@ -122,8 +128,8 @@ class RoutingBlock(nn.Module):
 
         self.start_linear = nn.Linear(in_features=num_nodes, out_features=1)
 
-        self.w_gate = nn.Linear(d, num_experts)
-        self.w_noise = nn.Linear(d, num_experts)
+        self.w_gate = nn.Linear(input_size, num_experts)
+        self.w_noise = nn.Linear(input_size, num_experts)
 
         self.softplus = nn.Softplus()
         self.softmax = nn.Softmax(dim=-1)
@@ -139,7 +145,7 @@ class RoutingBlock(nn.Module):
         top_values_flat = noisy_top_values.flatten()
 
         threshold_positions_if_in = (
-            torch.arange(batch, device=clean_values.device) * m + self.k
+            torch.arange(batch, device=clean_values.device) * m + self.top_k
         )
         threshold_if_in = torch.unsqueeze(
             torch.gather(top_values_flat, 0, threshold_positions_if_in), 1
@@ -173,16 +179,18 @@ class RoutingBlock(nn.Module):
         else:
             logits = clean_logits
 
-        top_logits, top_indices = logits.topk(min(self.k + 1, self.num_experts), dim=1)
+        top_logits, top_indices = logits.topk(
+            min(self.top_k + 1, self.num_experts), dim=1
+        )
 
-        top_k_logits = top_logits[:, : self.k]
-        top_k_indices = top_indices[:, : self.k]
+        top_k_logits = top_logits[:, : self.top_k]
+        top_k_indices = top_indices[:, : self.top_k]
         top_k_gates = self.softmax(top_k_logits)
 
         zeros = torch.zeros_like(logits, requires_grad=True)
         gates = zeros.scatter(1, top_k_indices, top_k_gates)
 
-        if self.noisy_gating and self.k < self.num_experts and train:
+        if self.noisy_gating and self.top_k < self.num_experts and train:
             load = (
                 self._prob_in_top_k(
                     clean_logits, noisy_logits, noise_stddev, top_logits
@@ -194,17 +202,17 @@ class RoutingBlock(nn.Module):
 
 
 class MultiScaleRouter(nn.Module):
-    def __init__(self, config : ConfigDict):
+    def __init__(self, config: ConfigDict, num_experts: int):
         super(MultiScaleRouter, self).__init__()
         self.config = config
-        self.trend_block = SeasonalityBlock(
-            self.config.top_k, self.config.prediction_length, self.config.low_frequency
+        self.seasonality_block = SeasonalityBlock(
+            self.config.k_seasonality, 0, self.config.low_frequency
         )
-        self.trend_block = TrendBlock(self.config.list_kernel_size)
+        self.trend_block = TrendBlock(self.config.list_kernel_size_trend)
         self.routing_block = RoutingBlock(
-            self.config.d,
-            self.config.num_experts,
-            self.config.top_k,
+            self.config.seq_len,
+            num_experts,
+            self.config.k,
             self.config.noisy_gating,
             self.config.num_nodes,
         )
@@ -212,7 +220,7 @@ class MultiScaleRouter(nn.Module):
     def forward(self, x: torch.Tensor, train: bool):
         x = x[:, :, :, 0]
         _, trend = self.trend_block(x)
-        seasonality, _ = self.trend_block(x)
+        seasonality, _ = self.seasonality_block(x)
         x_trans = x + seasonality + trend
         gates, load = self.routing_block(x_trans, train)
         return gates, load

@@ -8,7 +8,7 @@ features = "M"
 seq_len = 96                
 num_nodes = 7
 layer_nums = 3
-batch_norm = 0              
+batch_norm = true              
 d_model = 4
 d_ff = 64
 train_epochs = 30
@@ -24,25 +24,25 @@ pred_len = 96
 patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
 residual_connection = 1     
 k = 3
-batch_size = 128
+batch_size = 32
 
 [[runs]]
 pred_len = 192
 patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
 residual_connection = 1
 k = 3
-batch_size = 128
+batch_size = 32
 
 [[runs]]
 pred_len = 336
 patch_size_list = [16, 12, 8, 32, 12, 8, 6, 16, 8, 6, 4, 16] 
 residual_connection = 0    
 k = 3
-batch_size = 512           
+batch_size = 32           
 
 [[runs]]
 pred_len = 720
 patch_size_list = [16, 12, 8, 32, 12, 8, 6, 4, 8, 6, 4, 2]
 residual_connection = 0     
 k = 2                       
-batch_size = 512           
+batch_size = 32           

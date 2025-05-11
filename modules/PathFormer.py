@@ -17,16 +17,25 @@ class PathFormer(nn.Module):
                 num_features=self.config.num_nodes, affine=False, subtract_last=False
             )
 
-        self.start_fc = nn.Linear(in_features=1, out_features=self.d_model)
+        self.start_fc = nn.Linear(in_features=1, out_features=self.config.d_model)
         self.AMS_lists = nn.ModuleList()
 
-        for _ in range(self.layer_nums):
-            self.AMS_lists.append(AdaptiveMultiScale(config=self.config))
+        for num in range(self.layer_nums):
+            self.AMS_lists.append(
+                AdaptiveMultiScale(
+                    config=self.config,
+                    patch_size=self.config.patch_size_list[num],
+                    num_experts=self.config.num_experts_list[num],
+                    layer_number=num + 1,
+                )
+            )
         self.projections = nn.Sequential(
-            nn.Linear(self.seq_len * self.d_model, self.pre_len)
+            nn.Linear(self.config.seq_len * self.config.d_model, self.config.pred_len)
         )
 
     def forward(self, x):
+
+        x = x.to(torch.float32)
 
         balance_loss = 0
         if self.revin:
@@ -39,10 +48,10 @@ class PathFormer(nn.Module):
             out, aux_loss = layer(out)
             balance_loss += aux_loss
 
-        out = out.permute(0, 2, 1, 3).reshape(batch_size, self.num_nodes, -1)
+        out = out.permute(0, 2, 1, 3).reshape(batch_size, self.config.num_nodes, -1)
         out = self.projections(out).transpose(2, 1)
 
         if self.revin:
             out = self.revin_layer(out, "denorm")
-            
+
         return {"prediction": out, "balance_loss": balance_loss}

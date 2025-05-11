@@ -19,14 +19,15 @@ class MLP(nn.Module):
 
 class AdaptiveMultiScale(nn.Module):
 
-    def __init__(self, config: ConfigDict, layer_number: int):
+    def __init__(self, config: ConfigDict, num_experts: int, patch_size: list, layer_number: int):
         super(AdaptiveMultiScale, self).__init__()
 
         self.config = config
 
-        self.num_experts = self.config.num_experts
-        self.output_size = self.config.output_size
-        self.input_size = self.config.input_size
+        self.num_experts = num_experts
+        self.patch_size = patch_size
+        self.output_size = self.config.seq_len
+        self.input_size = self.config.seq_len
         self.k = self.config.k
         self.d_model = self.config.d_model
         self.d_ff = self.config.d_ff
@@ -36,11 +37,11 @@ class AdaptiveMultiScale(nn.Module):
         self.batch_norm = self.config.batch_norm
         self.residual_connection = self.config.residual_connection
 
-        self.multi_scale_router = MultiScaleRouter(self.config)
+        self.multi_scale_router = MultiScaleRouter(self.config, self.num_experts)
 
         self.experts = nn.ModuleList()
 
-        for patch in self.config.patch_size:
+        for patch in patch_size:
             patch_nums = int(self.input_size / patch)
             self.experts.append(
                 DualAttentionLayer(
@@ -50,7 +51,7 @@ class AdaptiveMultiScale(nn.Module):
                     num_nodes=self.num_nodes,
                     patch_nums=patch_nums,
                     patch_size=patch,
-                    factorized=True,
+                    factorized=self.config.factorized,
                     layer_number=self.layer_number,
                     batch_norm=self.batch_norm,
                 )

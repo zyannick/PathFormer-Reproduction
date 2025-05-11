@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from typing import Any, Dict, List
 import math
-import torch.functional as F
+import torch.nn.functional as F
 import numpy as np
 from torch.nn import init
 
@@ -41,8 +41,9 @@ class DualAttentionLayer(nn.Module):
             ]
         )
         self.intra_d_model = self.d_model
-        self.intra_patch_attention = InterPatchAttention(
-            self.intra_d_model, factorized=factorized
+        self.intra_patch_attention = IntraPatchAttention(
+            d_model=self.intra_d_model,
+            factorized=factorized,
         )
         self.weights_generator_distinct = WeightGenerator(
             self.intra_d_model,
@@ -86,6 +87,8 @@ class DualAttentionLayer(nn.Module):
             attn_dropout=0,
             proj_dropout=0.1,
             res_attention=False,
+            qkv_bias=True,
+            lsa=False,
         )
 
         self.norm_attn = nn.Sequential(
@@ -154,7 +157,7 @@ class DualAttentionLayer(nn.Module):
         )  # [b*nvar, patch_num, dim*patch_len]
 
         x = self.emb_linear(x)
-        x = self.dropout(x + self.W_pos)
+        x = self.dropout(x + self.W_pos.to(x.device))
 
         inter_out, attention = self.inter_patch_attention(
             Q=x, K=x, V=x

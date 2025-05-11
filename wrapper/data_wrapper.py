@@ -19,29 +19,32 @@ class DataModule(pl.LightningDataModule):
         self.batch_size = config.batch_size
         self.num_workers = config.num_workers
         self.setup_datasets()
+        self.train_steps = len(self.train_dataloader())
 
     def setup_datasets(self) -> None:
+
+        timeenc = 0 if self.config.embed != "timeF" else 1
 
         self.train_dataset = Dataset_ETT(
             root_path=self.root_path,
             data_filename=self.data_path,
             flag="train",
-            size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
+            size=[self.config.seq_len, self.config.pred_len],
             features=self.features,
             target=self.target,
             scale=True,
-            timeenc=1,
+            timeenc=timeenc,
             freq=self.freq,
         )
         self.val_dataset = Dataset_ETT(
             root_path=self.root_path,
             data_filename=self.data_path,
             flag="val",
-            size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
+            size=[self.config.seq_len, self.config.pred_len],
             features=self.features,
             target=self.target,
             scale=True,
-            timeenc=1,
+            timeenc=timeenc,
             freq=self.freq,
         )
 
@@ -49,11 +52,11 @@ class DataModule(pl.LightningDataModule):
             root_path=self.root_path,
             data_filename=self.data_path,
             flag="test",
-            size=[self.config.seq_len, self.config.label_len, self.config.pred_len],
+            size=[self.config.seq_len, self.config.pred_len],
             features=self.features,
             target=self.target,
             scale=True,
-            timeenc=1,
+            timeenc=timeenc,
             freq=self.freq,
         )
 

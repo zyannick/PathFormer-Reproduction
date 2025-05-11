@@ -1,3 +1,8 @@
 data/*
 .vscode/*
 .env
+checkpoints/
+dataset/
+mlflow/
+mlruns/
+*.pyc
