@@ -91,4 +91,3 @@ def runner():
     trainer.fit(forecaster, data_module)
     trainer.test(forecaster, data_module, ckpt_path="best")
     
-#train.py --pred_len 96 --config_file /home/yzoetgna/projects/PathFormer-Reproduction/params/ETTh1.toml 

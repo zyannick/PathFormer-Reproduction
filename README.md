@@ -2,6 +2,30 @@
 
 This project involves reproducing the results of the ICLR 2024 paper: "[Pathformer: Multi-scale Transformers with Adaptive Pathways for Time Series Forecasting](https://arxiv.org/abs/2402.05956v5)" and exploring potential extensions and improvements.
 
+## Usage
+
+To use and run experiments:
+
+```
+conda create -n path_former python=3.12 -y
+conda activate path_former
+pip install -r requirements.txt
+```
+
+Depending on you gpu you can update the version of pytorch/pytorch_ligthning.
+
+To launch the training:
+
+```
+python train.py --pred_len 96 --config_file params/ETTh1.toml 
+```
+
+You can also launch training of experiment through scripts like:
+
+```
+./scripts/ETTh1.sh
+```
+
 ## Analysis and Reproduction Goals
 
 The primary goal is to thoroughly understand and validate the Pathformer model. Key analysis steps include:

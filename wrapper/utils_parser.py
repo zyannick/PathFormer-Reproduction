@@ -175,7 +175,7 @@ def full_parse_args():
 
     # optimization
     parser.add_argument(
-        "--num_workers", type=int, default=16, help="data loader num workers"
+        "--num_workers", type=int, default=4, help="data loader num workers"
     )
     parser.add_argument("--itr", type=int, default=1, help="experiments times")
     parser.add_argument("--train_epochs", type=int, default=50, help="train epochs")
