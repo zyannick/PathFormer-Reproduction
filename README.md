@@ -26,6 +26,10 @@ You can also launch training of experiment through scripts like:
 ./scripts/ETTh1.sh
 ```
 
+## Dataset
+
+You can access the well pre-processed datasets from [Google Drive](https://drive.google.com/file/d/1NF7VEefXCmXuWNbnNe858WvQAkJ_7wuP/view), then place the downloaded contents under ./dataset
+
 ## Analysis and Reproduction Goals
 
 The primary goal is to thoroughly understand and validate the Pathformer model. Key analysis steps include:
